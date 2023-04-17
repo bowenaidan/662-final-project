@@ -1,0 +1,12 @@
+name: finalproject
+version: 0.1.0.0
+build-type: Simple
+
+executable finalp
+  main-is: finalp.hs
+  build-depends:
+    base >= 4.8 && < 5
+  default-language: Haskell2010
+
+clean:
+  rm -f *.o *.hi finalp
