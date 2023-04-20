@@ -43,13 +43,30 @@ data T where -- operators
   Or :: T -> T -> T
   Leq :: T -> T -> T
   IsZero :: T -> T
-  deriving (Show)
+  deriving (Show, Eq)
 
 data TY where -- types
   Num :: TY
   Boolean :: TY
   Arrow :: TY -> TY -> TY
-  deriving (Show)
+  deriving (Show, Eq)
+
+data TV where
+  NumV :: Int -> TV
+  ClosureV :: String -> T -> Cont -> TV
+  deriving (Show, Eq)
+
+-- Context
+type Cont = [(String, TY)]
+
+-- Environment
+type Env = [(String, T)]
+type EnvV = [(String, TV)]
+
+-- Helper Functions
+lookupVar :: String -> Cont -> Maybe TY
+lookupVar _ [] = Nothing
+lookupVar x ((y, t):cont) = if x == y then Just t else lookupVar x cont
 
 --------------------------------
 -- Part 1: Type Checking ------- TODO: -- Decide on a language name
@@ -58,7 +75,7 @@ data TY where -- types
 typeOf :: Cont -> T -> (Maybe TY)
 typeOf _ (Int _) = Just Num
 typeOf _ (Bool _) = Just Boolean
-typeOf cont (Id x) = lookup x cont
+typeOf cont (Id x) = lookupVar x cont
 
 typeOf cont (Add x y) = do {
   t1 <- typeOf cont x;
@@ -178,12 +195,119 @@ typeOf cont (IsZero x) = do {
     _ -> Nothing
 }
 
+
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
 
-eval :: T -> Maybe T --call-by-value and static scooping
-eval (Int _) = Just (Int _)
+eval :: EnvV -> T -> (Maybe TV) --call-by-value and static scooping
+eval _ (Int _) = Just (Int _)
+eval _ (Bool _) = Just (Bool _)
+eval _ (Id _) = Just (Id _)
+
+eval eV (Add x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (NumV (x'' + y''))
+    _ -> Nothing
+}
+
+eval eV (Sub x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (NumV (x'' - y''))
+    _ -> Nothing
+}
+
+eval eV (Mult x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (NumV (x'' * y''))
+    _ -> Nothing
+}
+
+eval eV (Div x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (NumV (x'' / y''))
+    _ -> Nothing
+}
+
+eval eV (Pow x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (NumV (x'' ^ y''))
+    _ -> Nothing
+}
+
+eval eV (Between x y z) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  z' <- eval eV z;
+  case (x', y', z') of
+    (NumV x'', NumV y'', NumV z'') -> Just (BoolV (x'' <= y'' && y'' <= z''))
+    _ -> Nothing
+}
+
+eval eV (Lambda x y) = Just (ClosureV x y eV)
+
+eval eV (App x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case x' of
+    (ClosureV x'' y'' eV') -> eval ((x'', y'):eV') y''
+    _ -> Nothing
+}
+
+eval eV (Bind x y z) = do {
+  y' <- eval eV y;
+  eval ((x, y'):eV) z
+}
+
+eval eV (If x y z) = do {
+  x' <- eval eV x;
+  case x' of
+    (BoolV True) -> eval eV y
+    (BoolV False) -> eval eV z
+    _ -> Nothing
+}
+
+eval eV (And x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (BoolV x'', BoolV y'') -> Just (BoolV (x'' && y''))
+    _ -> Nothing
+}
+
+eval eV (Or x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (BoolV x'', BoolV y'') -> Just (BoolV (x'' || y''))
+    _ -> Nothing
+}
+
+eval eV (Leq x y) = do {
+  x' <- eval eV x;
+  y' <- eval eV y;
+  case (x', y') of
+    (NumV x'', NumV y'') -> Just (BoolV (x'' <= y''))
+    _ -> Nothing
+}
+
+eval eV (IsZero x) = do {
+  x' <- eval eV x;
+  case x' of
+    (NumV x'') -> Just (BoolV (x'' == 0))
+    _ -> Nothing
+}
+
 
 --------------------------------
 -- Part 3: Fixed Point Operator
