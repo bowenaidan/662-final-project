@@ -18,7 +18,7 @@
 --    | T && T 
 --    | T || T 
 --    | T <= T 
---    | isZero T 
+--    | isZero T
 --
 --TY ::= Num 
 --     | Boolean 
@@ -43,6 +43,7 @@ data T where -- operators
   Or :: T -> T -> T
   Leq :: T -> T -> T
   IsZero :: T -> T
+  Fix :: T -> T
   deriving (Show, Eq)
 
 data TY where -- types
@@ -71,6 +72,26 @@ lookupVar x ((y, t):cont) = if x == y then Just t else lookupVar x cont
 
 useClosure :: String -> TV -> EnvV -> EnvV -> EnvV
 useClosure i v e _ = (i,v):e 
+
+subst :: String -> T -> T -> T
+subst _ _ (Int i) = Int i
+subst _ _ (Bool b) = Bool b
+subst i t (Id x) = if i == x then t else Id x
+subst i t (Add x y) = Add (subst i t x) (subst i t y)
+subst i t (Sub x y) = Sub (subst i t x) (subst i t y)
+subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
+subst i t (Div x y) = Div (subst i t x) (subst i t y)
+subst i t (Pow x y) = Pow (subst i t x) (subst i t y)
+subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
+subst i t (Lambda x y) = if i == x then Lambda x y else Lambda x (subst i t y)
+subst i t (App x y) = App (subst i t x) (subst i t y)
+subst i t (Bind x y z) = if i == x then Bind x (subst i t y) z else Bind x (subst i t y) (subst i t z)
+subst i t (If x y z) = If (subst i t x) (subst i t y) (subst i t z)
+subst i t (And x y) = And (subst i t x) (subst i t y)
+subst i t (Or x y) = Or (subst i t x) (subst i t y)
+subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
+subst i t (IsZero x) = IsZero (subst i t x)
+subst i t (Fix x) = Fix (subst i t x)
 
 --------------------------------
 -- Part 1: Type Checking ------- -- Decide on a language name
@@ -196,6 +217,12 @@ typeOf cont (IsZero x) = do
   case t1 of
     Num -> Just Boolean
     _ -> Nothing
+
+typeOf cont (Fix x) = do
+  (Arrow t1 t2) <- typeOf cont x;
+  if t1 == t2
+    then return t1
+    else Nothing
  
 --------------------------------
 -- Part 2: Evaluation ----------
@@ -307,13 +334,16 @@ eval eV (IsZero x) = do
     (NumV x'') -> Just (BoolV (x'' == 0))
     _ -> Nothing
  
+eval eV (Fix f) = do
+  ClosureV x y j <- eval eV f;
+  eval j (subst x (Fix (Lambda x y)) y)
 
 
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
--- TODO: update ast 
--- TODO: update type checker
+-- AST UPDATED
+-- TYPE CHECKER UPDATED
 -- TODO: update eval
 
 --------------------------------
@@ -341,5 +371,5 @@ eval eV (IsZero x) = do
 main :: IO ()
 main = do {
   print("Testing...")
-}
+  }
 
