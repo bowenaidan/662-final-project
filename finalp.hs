@@ -1,27 +1,28 @@
-{-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 -- types
---T ::= int 
---    | bool 
---    | id 
---    | T + T 
---    | T - T 
---    | T * T 
---    | T / T 
---    | T ^ T 
---    | between T T T 
---    | lambda (id:TY) in T 
---    | T T 
---    | bind id T T 
---    | if T then T else T 
---    | T && T 
---    | T || T 
---    | T <= T 
---    | isZero T 
+-- T ::= int
+--    | bool
+--    | id
+--    | T + T
+--    | T - T
+--    | T * T
+--    | T / T
+--    | T ^ T
+--    | between T T T
+--    | lambda (id:TY) in T
+--    | T T
+--    | bind id T T
+--    | if T then T else T
+--    | T && T
+--    | T || T
+--    | T <= T
+--    | isZero T
 --
---TY ::= Num 
---     | Boolean 
+-- TY ::= Num
+--     | Boolean
 --     | TY -> TY
 
 -- Abstract Syntax Definitions
@@ -54,6 +55,7 @@ data TY where -- types
 data TV where
   NumV :: Int -> TV
   ClosureV :: String -> T -> Cont -> TV
+  BoolV :: Bool -> TV
   deriving (Show, Eq)
 
 -- Context
@@ -61,268 +63,212 @@ type Cont = [(String, TY)]
 
 -- Environment
 type Env = [(String, T)]
+
 type EnvV = [(String, TV)]
 
 -- Helper Functions
 lookupVar :: String -> Cont -> Maybe TY
 lookupVar _ [] = Nothing
-lookupVar x ((y, t):cont) = if x == y then Just t else lookupVar x cont
+lookupVar x ((y, t) : cont) = if x == y then Just t else lookupVar x cont
 
 --------------------------------
 -- Part 1: Type Checking ------- TODO: -- Decide on a language name
 --------------------------------
--- implement a method that takes an expression from your language and returns its type given a context. If no type is found your method should return Nothing. 
+-- implement a method that takes an expression from your language and returns its type given a context. If no type is found your method should return Nothing.
 typeOf :: Cont -> T -> (Maybe TY)
 typeOf _ (Int _) = Just Num
 typeOf _ (Bool _) = Just Boolean
 typeOf cont (Id x) = lookupVar x cont
-
-typeOf cont (Add x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Add x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Num
     _ -> Nothing
-}
-
-typeOf cont (Sub x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Sub x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Num
     _ -> Nothing
-}
-
-typeOf cont (Mult x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Mult x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Num
     _ -> Nothing
-}
-
-typeOf cont (Div x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Div x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Num
     _ -> Nothing
-}
-
-typeOf cont (Pow x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Pow x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Num
     _ -> Nothing
-}
-
-typeOf cont (Between x y z) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  t3 <- typeOf cont z;
+typeOf cont (Between x y z) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
+  t3 <- typeOf cont z
   case (t1, t2, t3) of
     (Num, Num, Num) -> Just Boolean
     _ -> Nothing
-}
-
-typeOf cont (Lambda x y) = do {
+typeOf cont (Lambda x y) = do
   t1 <- lookupVar x cont
   -- type-check the body expression with the new variable in the context
-  t2 <- typeOf ((x, t1):cont) y
+  t2 <- typeOf ((x, t1) : cont) y
   -- return the arrow type from t1 to t2
   return (Arrow t1 t2)
-}
-
-typeOf cont (App x y) = do {
+typeOf cont (App x y) = do
   -- type-check the function expression
-  (Arrow t1 t2) <- typeOf cont x;
+  (Arrow t1 t2) <- typeOf cont x
   -- type-check the argument expression
-  t1' <- typeOf cont y;
+  t1' <- typeOf cont y
   if t1 == t1' -- if the type of the argument matches the domain of the function
     then return t2
     else Nothing
-}
-
-typeOf cont (Bind x y z) = do {
+typeOf cont (Bind x y z) = do
   -- type-check the bound expression
-  t1 <- typeOf cont y;
+  t1 <- typeOf cont y
   -- type-check the body expression with the new variable in the context
-  t2 <- typeOf ((x, t1):cont) z;
+  t2 <- typeOf ((x, t1) : cont) z
   return t2
-}
-
-typeOf cont (If x y z) = do {
+typeOf cont (If x y z) = do
   -- type-check the condition expression
-  t1 <- typeOf cont x;
+  t1 <- typeOf cont x
   -- type-check the then expression
-  t2 <- typeOf cont y;
+  t2 <- typeOf cont y
   -- type-check the else expression
-  t3 <- typeOf cont z;
+  t3 <- typeOf cont z
   if t1 == Boolean && t2 == t3 -- if the condition is boolean and the then and else expressions have the same type
     then return t2
     else Nothing
-}
-
-typeOf cont (And x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (And x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Boolean, Boolean) -> Just Boolean
     _ -> Nothing
-}
-
-typeOf cont (Or x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Or x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Boolean, Boolean) -> Just Boolean
     _ -> Nothing
-}
-
-typeOf cont (Leq x y) = do {
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
+typeOf cont (Leq x y) = do
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
   case (t1, t2) of
     (Num, Num) -> Just Boolean
     _ -> Nothing
-}
-
-typeOf cont (IsZero x) = do {
-  t1 <- typeOf cont x;
+typeOf cont (IsZero x) = do
+  t1 <- typeOf cont x
   case t1 of
     Num -> Just Boolean
     _ -> Nothing
-}
-
 
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
 
-eval :: EnvV -> T -> (Maybe TV) --call-by-value and static scooping
+eval :: EnvV -> T -> (Maybe TV) -- call-by-value and static scooping
 eval _ (Int _) = Just (Int _)
 eval _ (Bool _) = Just (Bool _)
 eval _ (Id _) = Just (Id _)
-
-eval eV (Add x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Add x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (NumV (x'' + y''))
     _ -> Nothing
-}
-
-eval eV (Sub x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Sub x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (NumV (x'' - y''))
     _ -> Nothing
-}
-
-eval eV (Mult x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Mult x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (NumV (x'' * y''))
     _ -> Nothing
-}
-
-eval eV (Div x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Div x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (NumV (x'' / y''))
     _ -> Nothing
-}
-
-eval eV (Pow x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Pow x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (NumV (x'' ^ y''))
     _ -> Nothing
-}
-
-eval eV (Between x y z) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
-  z' <- eval eV z;
+eval eV (Between x y z) = do
+  x' <- eval eV x
+  y' <- eval eV y
+  z' <- eval eV z
   case (x', y', z') of
     (NumV x'', NumV y'', NumV z'') -> Just (BoolV (x'' <= y'' && y'' <= z''))
     _ -> Nothing
-}
-
 eval eV (Lambda x y) = Just (ClosureV x y eV)
-
-eval eV (App x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (App x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case x' of
-    (ClosureV x'' y'' eV') -> eval ((x'', y'):eV') y''
+    (ClosureV x'' y'' eV') -> eval ((x'', y') : eV') y''
     _ -> Nothing
-}
-
-eval eV (Bind x y z) = do {
-  y' <- eval eV y;
-  eval ((x, y'):eV) z
-}
-
-eval eV (If x y z) = do {
-  x' <- eval eV x;
+eval eV (Bind x y z) = do
+  y' <- eval eV y
+  eval ((x, y') : eV) z
+eval eV (If x y z) = do
+  x' <- eval eV x
   case x' of
     (BoolV True) -> eval eV y
     (BoolV False) -> eval eV z
     _ -> Nothing
-}
-
-eval eV (And x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (And x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (BoolV x'', BoolV y'') -> Just (BoolV (x'' && y''))
     _ -> Nothing
-}
-
-eval eV (Or x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Or x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (BoolV x'', BoolV y'') -> Just (BoolV (x'' || y''))
     _ -> Nothing
-}
-
-eval eV (Leq x y) = do {
-  x' <- eval eV x;
-  y' <- eval eV y;
+eval eV (Leq x y) = do
+  x' <- eval eV x
+  y' <- eval eV y
   case (x', y') of
     (NumV x'', NumV y'') -> Just (BoolV (x'' <= y''))
     _ -> Nothing
-}
-
-eval eV (IsZero x) = do {
-  x' <- eval eV x;
+eval eV (IsZero x) = do
+  x' <- eval eV x
   case x' of
     (NumV x'') -> Just (BoolV (x'' == 0))
     _ -> Nothing
-}
-
 
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
-TODO: -- update ast
-TODO: -- update type checker
-TODO: -- update eval
+-- TODO: -- update ast
+-- TODO: -- update type checker
+-- TODO: -- update eval
 
 --------------------------------
 -- Part 4: New Language Feature TODO: -- Decide on a new feature
 --------------------------------
 
-TODO: -- update ast
-TODO: -- update type checker
-TODO: -- update eval
+-- TODO: -- update ast
+-- TODO: -- update type checker
+-- TODO: -- update eval
 
 --------------------------------
 -- Part 5: Interpretation ------
@@ -330,14 +276,12 @@ TODO: -- update eval
 
 -- interpret :: String -> Maybe T
 
-
 -- Testing
 -- To test quickly, you can use the following main function
 -- There's also a cabal file
-      -- 'cabal build' to compile
-      -- 'cabal clean' to clean up .exe and .o files
-
+-- 'cabal build' to compile
+-- 'cabal clean' to clean up .exe and .o files
 
 main :: IO ()
-main = do 
-  print("This is the project")
+main = do
+  print ("This is the project")
