@@ -197,8 +197,6 @@ typeOf cont (IsZero x) = do
     Num -> Just Boolean
     _ -> Nothing
  
-
-
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
@@ -314,17 +312,17 @@ eval eV (IsZero x) = do
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
--- update ast
--- update type checker
--- update eval
+-- TODO: update ast 
+-- TODO: update type checker
+-- TODO: update eval
 
 --------------------------------
--- Part 4: New Language Feature -- Decide on a new feature
+-- Part 4: New Language Feature -- TODO: Decide on a new feature
 --------------------------------
 
--- update ast
--- update type checker
--- update eval
+-- TODO: update ast
+-- TODO: update type checker
+-- TODO: update eval
 
 --------------------------------
 -- Part 5: Interpretation ------
@@ -341,5 +339,7 @@ eval eV (IsZero x) = do
 
 
 main :: IO ()
-main = do 
-  print("This is the project")
+main = do {
+  print("Testing...")
+}
+
