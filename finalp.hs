@@ -49,7 +49,7 @@ data T where -- operators
 data TY where -- types
   Num :: TY
   Boolean :: TY
-  (:->:) :: TY -> TY -> TY
+  Arrow :: TY -> TY -> TY
   deriving (Show, Eq)
 
 data TV where
@@ -155,12 +155,12 @@ typeOf cont (Lambda x y z) = do       --where x is an identifier, y is a type, a
   t1 <- typeOf ((x,y):cont) z;
   -- type-check the body expression with the new variable in the context
   -- t2 <- typeOf ((x, t1):cont) y
-  -- return the :->: type from t1 to t2
-  return (y :->: t1)
+  -- return the Arrow type from t1 to t2
+  return (Arrow y t1)
 
 typeOf cont (App x y) = do  
   -- type-check the function expression
-  ((:->:) t1 t2) <- typeOf cont x;
+  (Arrow t1 t2) <- typeOf cont x;
   -- type-check the argument expression
   t1' <- typeOf cont y;
   if t1 == t1' -- if the type of the argument matches the domain of the function
@@ -219,7 +219,7 @@ typeOf cont (IsZero x) = do
     _ -> Nothing
 
 typeOf cont (Fix x) = do
-  ((:->:) t1 t2) <- typeOf cont x;
+  (Arrow t1 t2) <- typeOf cont x;
   if t1 == t2
     then return t1
     else Nothing
@@ -374,7 +374,7 @@ interpret x = do {typeOf [] x;
 
 test1 = interpret (
                   Bind "f"
-                    (Fix (Lambda "g" (Num :->: Num)
+                    (Fix (Lambda "g" (Arrow Num Num)
                       (Lambda "x" Num
                         (If (Leq (Id "x") (Int 1))
                           (Id "x")
