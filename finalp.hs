@@ -36,7 +36,7 @@ data T where -- operators
   Div :: T -> T -> T
   Pow :: T -> T -> T
   Between :: T -> T -> T -> T
-  Lambda :: String -> T -> T
+  Lambda :: String -> TY -> T -> T
   App :: T -> T -> T
   Bind :: String -> T -> T -> T
   If :: T -> T -> T -> T
@@ -44,6 +44,7 @@ data T where -- operators
   Or :: T -> T -> T
   Leq :: T -> T -> T
   IsZero :: T -> T
+  Fix :: T -> T
   deriving (Show, Eq)
 
 data TY where -- types
@@ -54,8 +55,8 @@ data TY where -- types
 
 data TV where
   NumV :: Int -> TV
-  ClosureV :: String -> T -> Cont -> TV
   BoolV :: Bool -> TV
+  ClosureV :: String -> T -> EnvV -> TV
   deriving (Show, Eq)
 
 -- Context
@@ -71,8 +72,31 @@ lookupVar :: String -> Cont -> Maybe TY
 lookupVar _ [] = Nothing
 lookupVar x ((y, t) : cont) = if x == y then Just t else lookupVar x cont
 
+useClosure :: String -> TV -> EnvV -> EnvV -> EnvV
+useClosure i v e _ = (i, v) : e
+
+subst :: String -> T -> T -> T
+subst _ _ (Int i) = Int i
+subst _ _ (Bool b) = Bool b
+subst i t (Id x) = if i == x then t else Id x
+subst i t (Add x y) = Add (subst i t x) (subst i t y)
+subst i t (Sub x y) = Sub (subst i t x) (subst i t y)
+subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
+subst i t (Div x y) = Div (subst i t x) (subst i t y)
+subst i t (Pow x y) = Pow (subst i t x) (subst i t y)
+subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
+subst i t (Lambda x y z) = if i == x then Lambda x y z else Lambda x y (subst i t z)
+subst i t (App x y) = App (subst i t x) (subst i t y)
+subst i t (Bind x y z) = if i == x then Bind x (subst i t y) z else Bind x (subst i t y) (subst i t z)
+subst i t (If x y z) = If (subst i t x) (subst i t y) (subst i t z)
+subst i t (And x y) = And (subst i t x) (subst i t y)
+subst i t (Or x y) = Or (subst i t x) (subst i t y)
+subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
+subst i t (IsZero x) = IsZero (subst i t x)
+subst i t (Fix x) = Fix (subst i t x)
+
 --------------------------------
--- Part 1: Type Checking ------- TODO: -- Decide on a language name
+-- Part 1: Type Checking ------- -- Decide on a language name
 --------------------------------
 -- implement a method that takes an expression from your language and returns its type given a context. If no type is found your method should return Nothing.
 typeOf :: Cont -> T -> (Maybe TY)
@@ -116,12 +140,13 @@ typeOf cont (Between x y z) = do
   case (t1, t2, t3) of
     (Num, Num, Num) -> Just Boolean
     _ -> Nothing
-typeOf cont (Lambda x y) = do
-  t1 <- lookupVar x cont
+typeOf cont (Lambda x y z) = do
+  -- where x is an identifier, y is a type, and b is a body
+  t1 <- typeOf ((x, y) : cont) z
   -- type-check the body expression with the new variable in the context
-  t2 <- typeOf ((x, t1) : cont) y
-  -- return the arrow type from t1 to t2
-  return (Arrow t1 t2)
+  -- t2 <- typeOf ((x, t1):cont) y
+  -- return the Arrow type from t1 to t2
+  return (Arrow y t1)
 typeOf cont (App x y) = do
   -- type-check the function expression
   (Arrow t1 t2) <- typeOf cont x
@@ -169,15 +194,20 @@ typeOf cont (IsZero x) = do
   case t1 of
     Num -> Just Boolean
     _ -> Nothing
+typeOf cont (Fix x) = do
+  (Arrow t1 t2) <- typeOf cont x
+  if t1 == t2
+    then return t1
+    else Nothing
 
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
 
 eval :: EnvV -> T -> (Maybe TV) -- call-by-value and static scooping
-eval _ (Int _) = Just (Int _)
-eval _ (Bool _) = Just (Bool _)
-eval _ (Id _) = Just (Id _)
+eval eV (Int x) = Just (NumV x)
+eval eV (Bool x) = Just (BoolV x)
+eval eV (Id x) = lookup x eV
 eval eV (Add x y) = do
   x' <- eval eV x
   y' <- eval eV y
@@ -200,7 +230,7 @@ eval eV (Div x y) = do
   x' <- eval eV x
   y' <- eval eV y
   case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' / y''))
+    (NumV x'', NumV y'') -> Just (NumV (x'' `div` y''))
     _ -> Nothing
 eval eV (Pow x y) = do
   x' <- eval eV x
@@ -215,13 +245,12 @@ eval eV (Between x y z) = do
   case (x', y', z') of
     (NumV x'', NumV y'', NumV z'') -> Just (BoolV (x'' <= y'' && y'' <= z''))
     _ -> Nothing
-eval eV (Lambda x y) = Just (ClosureV x y eV)
+eval eV (Lambda x y z) = Just (ClosureV x z eV)
 eval eV (App x y) = do
   x' <- eval eV x
   y' <- eval eV y
   case x' of
-    (ClosureV x'' y'' eV') -> eval ((x'', y') : eV') y''
-    _ -> Nothing
+    ClosureV i b e -> eval (useClosure i y' e eV) b
 eval eV (Bind x y z) = do
   y' <- eval eV y
   eval ((x, y') : eV) z
@@ -254,27 +283,36 @@ eval eV (IsZero x) = do
   case x' of
     (NumV x'') -> Just (BoolV (x'' == 0))
     _ -> Nothing
+eval eV (Fix f) = do
+  ClosureV x y j <- eval eV f
+  t <- Just Num
+  eval j (subst x (Fix (Lambda x t y)) y)
 
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
--- TODO: -- update ast
--- TODO: -- update type checker
--- TODO: -- update eval
+-- AST UPDATED
+-- TYPE CHECKER UPDATED
+-- TODO: update eval
 
 --------------------------------
--- Part 4: New Language Feature TODO: -- Decide on a new feature
+-- Part 4: New Language Feature -- TODO: Decide on a new feature
 --------------------------------
 
--- TODO: -- update ast
--- TODO: -- update type checker
--- TODO: -- update eval
+-- TODO: update ast
+-- TODO: update type checker
+-- TODO: update eval
 
 --------------------------------
 -- Part 5: Interpretation ------
 --------------------------------
 
 -- interpret :: String -> Maybe T
+-- if input type is String, we need a parser
+interpret :: T -> (Maybe TV)
+interpret x = do
+  typeOf [] x
+  eval [] x
 
 -- Testing
 -- To test quickly, you can use the following main function
@@ -282,6 +320,32 @@ eval eV (IsZero x) = do
 -- 'cabal build' to compile
 -- 'cabal clean' to clean up .exe and .o files
 
+test1 =
+  interpret
+    ( Bind
+        "f"
+        ( Fix
+            ( Lambda
+                "g"
+                (Arrow Num Num)
+                ( Lambda
+                    "x"
+                    Num
+                    ( If
+                        (Leq (Id "x") (Int 1))
+                        (Id "x")
+                        ( Add
+                            (App (Id "g") (Sub (Id "x") (Int 1)))
+                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                        )
+                    )
+                )
+            )
+        )
+        (App (Id "f") (Int 7))
+    )
+    == Just (NumV 13)
+
 main :: IO ()
 main = do
-  print ("This is the project")
+  print (test1)
