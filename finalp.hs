@@ -20,6 +20,7 @@
 --    | T || T
 --    | T <= T
 --    | isZero T
+--    | fix T
 --
 -- TY ::= Num
 --     | Boolean
@@ -45,18 +46,27 @@ data T where -- operators
   Leq :: T -> T -> T
   IsZero :: T -> T
   Fix :: T -> T
+--   takes new element and list and returns new list
+  Append :: T -> T -> T
+--   takes list and returns first element
+  Head :: T -> T
+--   takes list and returns last element
+  Tail :: T -> T
+  List :: [T] -> T
   deriving (Show, Eq)
 
 data TY where -- types
   Num :: TY
   Boolean :: TY
   Arrow :: TY -> TY -> TY
+  ListType :: TY -> TY
   deriving (Show, Eq)
 
 data TV where
   NumV :: Int -> TV
   BoolV :: Bool -> TV
   ClosureV :: String -> T -> EnvV -> TV
+  ListV :: [TV] -> TV
   deriving (Show, Eq)
 
 -- Context
@@ -94,6 +104,7 @@ subst i t (Or x y) = Or (subst i t x) (subst i t y)
 subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
 subst i t (IsZero x) = IsZero (subst i t x)
 subst i t (Fix x) = Fix (subst i t x)
+
 
 --------------------------------
 -- Part 1: Type Checking ------- -- Decide on a language name
@@ -283,10 +294,6 @@ eval eV (IsZero x) = do
   case x' of
     (NumV x'') -> Just (BoolV (x'' == 0))
     _ -> Nothing
-eval eV (Fix f) = do
-  ClosureV x y j <- eval eV f
-  t <- Just Num
-  eval j (subst x (Fix (Lambda x t y)) y)
 
 --------------------------------
 -- Part 3: Fixed Point Operator
@@ -294,6 +301,10 @@ eval eV (Fix f) = do
 -- AST UPDATED
 -- TYPE CHECKER UPDATED
 -- TODO: update eval
+eval eV (Fix f) = do
+  ClosureV x y j <- eval eV f
+  t <- Just Num
+  eval j (subst x (Fix (Lambda x t y)) y)
 
 --------------------------------
 -- Part 4: New Language Feature -- TODO: Decide on a new feature
