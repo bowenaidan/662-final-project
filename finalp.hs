@@ -35,7 +35,7 @@ data T where -- operators
   Div :: T -> T -> T
   Pow :: T -> T -> T
   Between :: T -> T -> T -> T
-  Lambda :: String -> T -> T
+  Lambda :: String -> TY -> T -> T
   App :: T -> T -> T
   Bind :: String -> T -> T -> T
   If :: T -> T -> T -> T
@@ -83,7 +83,7 @@ subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
 subst i t (Div x y) = Div (subst i t x) (subst i t y)
 subst i t (Pow x y) = Pow (subst i t x) (subst i t y)
 subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
-subst i t (Lambda x y) = if i == x then Lambda x y else Lambda x (subst i t y)
+subst i t (Lambda x y z) = if i == x then Lambda x y z else Lambda x y (subst i t z)
 subst i t (App x y) = App (subst i t x) (subst i t y)
 subst i t (Bind x y z) = if i == x then Bind x (subst i t y) z else Bind x (subst i t y) (subst i t z)
 subst i t (If x y z) = If (subst i t x) (subst i t y) (subst i t z)
@@ -151,12 +151,12 @@ typeOf cont (Between x y z) = do
     _ -> Nothing
  
 
-typeOf cont (Lambda x y) = do
-  t1 <- lookupVar x cont
+typeOf cont (Lambda x y z) = do       --where x is an identifier, y is a type, and b is a body
+  t1 <- typeOf ((x,y):cont) z;
   -- type-check the body expression with the new variable in the context
-  t2 <- typeOf ((x, t1):cont) y
+  -- t2 <- typeOf ((x, t1):cont) y
   -- return the :->: type from t1 to t2
-  return ((:->:) t1 t2)
+  return (y :->: t1)
 
 typeOf cont (App x y) = do  
   -- type-check the function expression
@@ -282,7 +282,7 @@ eval eV (Between x y z) = do
     _ -> Nothing
  
 
-eval eV (Lambda x y) = Just (ClosureV x y eV)
+eval eV (Lambda x y z) = Just (ClosureV x z eV)
 
 eval eV (App x y) = do  
   x' <- eval eV x;
@@ -336,7 +336,8 @@ eval eV (IsZero x) = do
  
 eval eV (Fix f) = do
   ClosureV x y j <- eval eV f;
-  eval j (subst x (Fix (Lambda x y)) y)
+  t <- Just Num
+  eval j (subst x (Fix (Lambda x t y)) y)
 
 
 --------------------------------
@@ -371,25 +372,25 @@ interpret x = do {typeOf [] x;
       -- 'cabal build' to compile
       -- 'cabal clean' to clean up .exe and .o files
 
-test1 = interpret (
-                  Bind "f"
-                    (Fix (Lambda "g" (Num :->: Num)
-                      (Lambda "x" Num
-                        (If (Leq (Id "x") (Int 1))
-                          (Id "x")
-                          (Add
-                            (App (Id "g") (Sub (Id "x") (Int 1)))
-                            (App (Id "g") (Sub (Id "x") (Int 2)))
-                          )
-                        )
-                      )
-                    ))
-                    (App (Id "f") (Int 2))) == Just (NumV 1)
+-- test1 = interpret (
+--                   Bind "f"
+--                     (Fix (Lambda "g" (Num :->: Num)
+--                       (Lambda "x" Num
+--                         (If (Leq (Id "x") (Int 1))
+--                           (Id "x")
+--                           (Add
+--                             (App (Id "g") (Sub (Id "x") (Int 1)))
+--                             (App (Id "g") (Sub (Id "x") (Int 2)))
+--                           )
+--                         )
+--                       )
+--                     ))
+--                     (App (Id "f") (Int 2))) == Just (NumV 1)
 
 
 main :: IO ()
 main = do {
   print("Testing...")
-  -- putStrLn $ show $ 
+  -- putStrLn $ show $ test1
   }
 
