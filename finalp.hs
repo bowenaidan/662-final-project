@@ -385,7 +385,7 @@ test1 = interpret (
                         )
                       )
                     ))
-                    (App (Id "f") (Int 2))) == Just (NumV 1)
+                    (App (Id "f") (Int 7))) == Just (NumV 13)
 
 
 main :: IO ()
