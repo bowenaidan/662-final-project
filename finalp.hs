@@ -360,6 +360,9 @@ eval eV (Fix f) = do
 
 -- interpret :: String -> Maybe T
 
+interpret x = do {typeOf [] x;
+                  eval [] x;}
+
 
 -- Testing
 -- To test quickly, you can use the following main function
@@ -371,5 +374,6 @@ eval eV (Fix f) = do
 main :: IO ()
 main = do {
   print("Testing...")
+  -- putStrLn $ show $ 
   }
 
