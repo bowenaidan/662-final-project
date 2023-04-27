@@ -359,7 +359,7 @@ eval eV (Fix f) = do
 --------------------------------
 
 -- interpret :: String -> Maybe T
--- if input type is T, we need a parser
+-- if input type is String, we need a parser
 interpret :: T -> (Maybe TV)
 interpret x = do {typeOf [] x;
                   eval [] x;}
