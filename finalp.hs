@@ -390,7 +390,6 @@ test1 = interpret (
 
 main :: IO ()
 main = do {
-  -- print("Testing...")
-  putStrLn $ show $ test1
+  print(test1)
   }
 
