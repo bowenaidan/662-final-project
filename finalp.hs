@@ -49,7 +49,7 @@ data T where -- operators
 data TY where -- types
   Num :: TY
   Boolean :: TY
-  Arrow :: TY -> TY -> TY
+  (:->:) :: TY -> TY -> TY
   deriving (Show, Eq)
 
 data TV where
@@ -155,12 +155,12 @@ typeOf cont (Lambda x y) = do
   t1 <- lookupVar x cont
   -- type-check the body expression with the new variable in the context
   t2 <- typeOf ((x, t1):cont) y
-  -- return the arrow type from t1 to t2
-  return (Arrow t1 t2)
+  -- return the :->: type from t1 to t2
+  return ((:->:) t1 t2)
 
 typeOf cont (App x y) = do  
   -- type-check the function expression
-  (Arrow t1 t2) <- typeOf cont x;
+  ((:->:) t1 t2) <- typeOf cont x;
   -- type-check the argument expression
   t1' <- typeOf cont y;
   if t1 == t1' -- if the type of the argument matches the domain of the function
@@ -219,7 +219,7 @@ typeOf cont (IsZero x) = do
     _ -> Nothing
 
 typeOf cont (Fix x) = do
-  (Arrow t1 t2) <- typeOf cont x;
+  ((:->:) t1 t2) <- typeOf cont x;
   if t1 == t2
     then return t1
     else Nothing
@@ -370,6 +370,21 @@ interpret x = do {typeOf [] x;
 -- There's also a cabal file
       -- 'cabal build' to compile
       -- 'cabal clean' to clean up .exe and .o files
+
+test1 = interpret (
+                  Bind "f"
+                    (Fix (Lambda "g" (Num :->: Num)
+                      (Lambda "x" Num
+                        (If (Leq (Id "x") (Int 1))
+                          (Id "x")
+                          (Add
+                            (App (Id "g") (Sub (Id "x") (Int 1)))
+                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                          )
+                        )
+                      )
+                    ))
+                    (App (Id "f") (Int 2))) == Just (NumV 1)
 
 
 main :: IO ()
