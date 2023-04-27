@@ -46,11 +46,11 @@ data T where -- operators
   Leq :: T -> T -> T
   IsZero :: T -> T
   Fix :: T -> T
---   takes new element and list and returns new list
+  --   takes new element and list and returns new list
   Append :: T -> T -> T
---   takes list and returns first element
+  --   takes list and returns first element
   Head :: T -> T
---   takes list and returns last element
+  --   takes list and returns last element
   Tail :: T -> T
   List :: [T] -> T
   deriving (Show, Eq)
@@ -104,7 +104,6 @@ subst i t (Or x y) = Or (subst i t x) (subst i t y)
 subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
 subst i t (IsZero x) = IsZero (subst i t x)
 subst i t (Fix x) = Fix (subst i t x)
-
 
 --------------------------------
 -- Part 1: Type Checking ------- -- Decide on a language name
@@ -210,6 +209,28 @@ typeOf cont (Fix x) = do
   if t1 == t2
     then return t1
     else Nothing
+typeOf cont (Append x y) = do
+  -- should be a element and a list
+  -- if t2 is a list, then check if t1 is the same type as the list
+  -- then return the list type
+  t1 <- typeOf cont x
+  t2 <- typeOf cont y
+  case t2 of
+    ListType t3 -> if t1 == t3 then return t2 else Nothing
+    _ -> Nothing
+typeOf cont (Head x) = do
+  -- could be a type of anything
+  t1 <- typeOf cont x
+  case t1 of
+    ListType t2 -> return t2
+    _ -> Nothing
+typeOf cont (Tail x) = do
+  -- could be a type of anything
+  t1 <- typeOf cont x
+  case t1 of
+    ListType t2 -> return t1
+    _ -> Nothing
+-- typeOf cont (List x) = do
 
 --------------------------------
 -- Part 2: Evaluation ----------
