@@ -372,25 +372,25 @@ interpret x = do {typeOf [] x;
       -- 'cabal build' to compile
       -- 'cabal clean' to clean up .exe and .o files
 
--- test1 = interpret (
---                   Bind "f"
---                     (Fix (Lambda "g" (Num :->: Num)
---                       (Lambda "x" Num
---                         (If (Leq (Id "x") (Int 1))
---                           (Id "x")
---                           (Add
---                             (App (Id "g") (Sub (Id "x") (Int 1)))
---                             (App (Id "g") (Sub (Id "x") (Int 2)))
---                           )
---                         )
---                       )
---                     ))
---                     (App (Id "f") (Int 2))) == Just (NumV 1)
+test1 = interpret (
+                  Bind "f"
+                    (Fix (Lambda "g" (Num :->: Num)
+                      (Lambda "x" Num
+                        (If (Leq (Id "x") (Int 1))
+                          (Id "x")
+                          (Add
+                            (App (Id "g") (Sub (Id "x") (Int 1)))
+                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                          )
+                        )
+                      )
+                    ))
+                    (App (Id "f") (Int 2))) == Just (NumV 1)
 
 
 main :: IO ()
 main = do {
-  print("Testing...")
-  -- putStrLn $ show $ test1
+  -- print("Testing...")
+  putStrLn $ show $ test1
   }
 
