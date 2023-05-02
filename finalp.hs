@@ -69,7 +69,7 @@ data TA where
   ClosureV :: String -> T -> MyTA -> TA
   --List Value--
   ListV :: Int -> TA -> TA -> TA
-  deriving (Show, Eq,Eq)
+  deriving (Show, Eq, Eq)
 
 -- Context
 -- type Cont = [(String, TY)]
@@ -88,7 +88,7 @@ lookupVar x e = case lookup x e of
 
 useClosure :: String -> T -> MyTA -> TA
 useClosure x t e = case lookup x e of
-  Just (ClosureV x' t' e') -> eval (Bind x t e') e
+  Just (ClosureV x' t' e') -> evalMonad (Bind x t e') e
   _ -> error "Not a closure"
 
 --------------------------------
@@ -305,9 +305,9 @@ evalMonad e (Length x) = do {
 
 -- interpret :: String -> Maybe T
 -- if input type is String, we need a parser
-interpret :: T -> (Maybe TV)
-interpret x = do {typeOf [] x;
-                  eval [] x;}
+interpret :: T -> (Maybe TA)
+interpret x = do {typeofMonad [] x;
+                  evalMonad [] x;}
 
 
 -- Testing
@@ -318,18 +318,18 @@ interpret x = do {typeOf [] x;
 
 test1 = interpret (
                   Bind "f"
-                    (Fix (Lambda "g" (Arrow Num Num)
-                      (Lambda "x" Num
-                        (If (Leq (Id "x") (Int 1))
+                    (Fix (Lambda "g" (TNum :->: TNum)
+                      (Lambda "x" TNum
+                        (If (Leq (Id "x") (Num 1))
                           (Id "x")
-                          (Add
-                            (App (Id "g") (Sub (Id "x") (Int 1)))
-                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                          (Plus
+                            (App (Id "g") (Minus (Id "x") (Num 1)))
+                            (App (Id "g") (Minus (Id "x") (Num 2)))
                           )
                         )
                       )
                     ))
-                    (App (Id "f") (Int 7))) == Just (NumV 13)
+                    (App (Id "f") (Num 7))) == Just (NumA 13)
 
 
 main :: IO ()
