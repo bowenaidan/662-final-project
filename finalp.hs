@@ -19,6 +19,7 @@
 --    | T || T 
 --    | T <= T 
 --    | isZero T
+--    | isZero T
 --
 --TY ::= Num
 --     | Boolean 
@@ -35,6 +36,7 @@ data T where -- operators
   Div :: T -> T -> T
   Exp :: T -> T -> T
   Between :: T -> T -> T -> T
+  Lambda :: String -> TY -> T -> T
   Lambda :: String -> TY -> T -> T
   App :: T -> T -> T
   Bind :: String -> T -> T -> T
@@ -265,6 +267,10 @@ evalMonad e (IsZero x) = do{
 --------------------------------
 
 -- interpret :: String -> Maybe T
+-- if input type is String, we need a parser
+interpret :: T -> (Maybe TV)
+interpret x = do {typeOf [] x;
+                  eval [] x;}
 
 
 -- Testing
@@ -273,9 +279,23 @@ evalMonad e (IsZero x) = do{
       -- 'cabal build' to compile
       -- 'cabal clean' to clean up .exe and .o files
 
+test1 = interpret (
+                  Bind "f"
+                    (Fix (Lambda "g" (Arrow Num Num)
+                      (Lambda "x" Num
+                        (If (Leq (Id "x") (Int 1))
+                          (Id "x")
+                          (Add
+                            (App (Id "g") (Sub (Id "x") (Int 1)))
+                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                          )
+                        )
+                      )
+                    ))
+                    (App (Id "f") (Int 7))) == Just (NumV 13)
+
 
 main :: IO ()
 main = do {
-  print("Testing...")
+  print(test1)
   }
-
