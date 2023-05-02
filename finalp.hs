@@ -81,33 +81,15 @@ type MyTY = [(String, TY)]
 type MyTA = [(String, TA)]
 
 -- Helper Functions
-lookupVar :: String -> Cont -> Maybe TY
-lookupVar _ [] = Nothing
-lookupVar x ((y, t):cont) = if x == y then Just t else lookupVar x cont
+lookupVar :: String -> MyTA -> TA
+lookupVar x e = case lookup x e of
+  Just v -> v
+  _ -> error "Variable not found"
 
-useClosure :: String -> TV -> EnvV -> EnvV -> EnvV
-useClosure i v e _ = (i,v):e 
-
-
-subst :: String -> T -> T -> T
-subst _ _ (Int i) = Int i
-subst _ _ (Bool b) = Bool b
-subst i t (Id x) = if i == x then t else Id x
-subst i t (Add x y) = Add (subst i t x) (subst i t y)
-subst i t (Sub x y) = Sub (subst i t x) (subst i t y)
-subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
-subst i t (Div x y) = Div (subst i t x) (subst i t y)
-subst i t (Pow x y) = Pow (subst i t x) (subst i t y)
-subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
-subst i t (Lambda x y) = if i == x then Lambda x y else Lambda x (subst i t y)
-subst i t (App x y) = App (subst i t x) (subst i t y)
-subst i t (Bind x y z) = if i == x then Bind x (subst i t y) z else Bind x (subst i t y) (subst i t z)
-subst i t (If x y z) = If (subst i t x) (subst i t y) (subst i t z)
-subst i t (And x y) = And (subst i t x) (subst i t y)
-subst i t (Or x y) = Or (subst i t x) (subst i t y)
-subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
-subst i t (IsZero x) = IsZero (subst i t x)
-subst i t (Fix x) = Fix (subst i t x)
+useClosure :: String -> T -> MyTA -> TA
+useClosure x t e = case lookup x e of
+  Just (ClosureV x' t' e') -> eval (Bind x t e') e
+  _ -> error "Not a closure"
 
 --------------------------------
 -- Part 1: Type Checking ------- 
@@ -172,8 +154,12 @@ typeofMonad g (Leq x y) = do
 typeofMonad g (IsZero x) = do
   TNum <- typeofMonad g x
   return TBool
-
+typeofMonad g (Fix x) = do
+  TNum :->: TNum <- typeofMonad g x
+  return TNum
+  
   --List begin--
+
 typeofMonad g (List x y) = do
   tx <- typeofMonad g x
   ty <- typeofMonad g y
@@ -191,8 +177,8 @@ typeofMonad g (Prepend x y) = do
 typeofMonad g (Length x) = do
   TList _ <- typeofMonad g x
   return TNum
---List end--
 
+--List end--
 
 --------------------------------
 -- Part 2: Evaluation ----------
@@ -266,8 +252,13 @@ evalMonad e (IsZero x) = do {
   (NumA x') <- evalMonad e x;
   if (x' == 0) then Just (BooleanA True) else Just (BooleanA False)
 }
+evalMonad e (Fix x) = do {
+  (ClosureV i b j) <- evalMonad e x;
+  evalMonad ((i, Fix x):j) b
+}
 
 --List begin
+
 evalMonad e (List x y) = do {
   x' <- evalMonad e x;
   y' <- evalMonad e y;
@@ -290,6 +281,7 @@ evalMonad e (Length x) = do {
   (ListV l) <- evalMonad e x;
   Just (NumA (length l))
 }
+
 --List end
 
 --------------------------------
@@ -297,7 +289,7 @@ evalMonad e (Length x) = do {
 --------------------------------
 -- AST UPDATED
 -- TYPE CHECKER UPDATED
--- TODO: update eval
+-- EVAL UPDATED
 
 --------------------------------
 -- Part 4: New Language Feature (Lists)
