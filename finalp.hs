@@ -1,28 +1,28 @@
-{-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 -- types
---T ::= int 
---    | bool 
---    | id 
---    | T + T 
---    | T - T 
---    | T * T 
---    | T / T 
---    | T ^ T 
---    | between T T T 
---    | lambda (id:TY) in T 
---    | T T 
---    | bind id T T 
---    | if T then T else T 
---    | T && T 
---    | T || T 
---    | T <= T 
---    | isZero T
+-- T ::= int
+--    | bool
+--    | id
+--    | T + T
+--    | T - T
+--    | T * T
+--    | T / T
+--    | T ^ T
+--    | between T T T
+--    | lambda (id:TY) in T
+--    | T T
+--    | bind id T T
+--    | if T then T else T
+--    | T && T
+--    | T || T
+--    | T <= T
 --    | isZero T
 --
---TY ::= Num
---     | Boolean 
+-- TY ::= Num
+--     | Boolean
 --     | TY -> TY
 
 -- Abstract Syntax Definitions
@@ -277,8 +277,8 @@ interpret x = do {typeOf [] x;
 -- Testing
 -- To test quickly, you can use the following main function
 -- There's also a cabal file
-      -- 'cabal build' to compile
-      -- 'cabal clean' to clean up .exe and .o files
+-- 'cabal build' to compile
+-- 'cabal clean' to clean up .exe and .o files
 
 test1 = interpret (
                   Bind "f"
