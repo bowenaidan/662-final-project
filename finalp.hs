@@ -247,6 +247,7 @@ evalMonad e (IsZero x) = do{
     (NumA x') <- (evalMonad e x);
     if (x' == 0) then Just (BooleanA True) else Just (BooleanA False) 
 }
+
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
