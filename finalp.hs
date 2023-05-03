@@ -273,8 +273,6 @@ evalMonad e (IsZero x) = do {
   if (x' == 0) then Just (BooleanA True) else Just (BooleanA False)
 }
 evalMonad e (Fix f) = do {
-  -- (ClosureV i b j) <- evalMonad e x;
-  -- evalMonad ((i, Fix x):j) b
   ClosureV x y j <- evalMonad e f;
   t <- Just TNum;
   evalMonad j (subst x (Fix (Lambda x t y)) y)
@@ -337,6 +335,13 @@ interpret x = do {typeofMonad [] x;
 -- 'cabal build' to compile
 -- 'cabal clean' to clean up .exe and .o files
 
+
+--three different recursive case functions for testing
+test0 = interpret (Bind "f"
+                  (Lambda "g" ((:->:) TNum TNum)
+                    (Lambda "x" TNum
+                      (If (IsZero (Id "x"))(Num 1)(Mult (Id "x")(App (Id "g")(Minus (Id "x")(Num 1)))))))
+                    (App (Fix (Id "f")) (Num 3))) == Just (NumA 6)
 test1 = interpret (
                   Bind "f"
                     (Fix (Lambda "g" (TNum :->: TNum)
@@ -358,10 +363,26 @@ test2 = interpret (
                                               (App (Id "g")
                                                   (Minus (Id "x") (Num 1)))))))
                   (App (Fix (Id "f")) (Num 5))) == Just (NumA 120)
-
+test3 = typeofMonad [] (Div (Num 1) (Num 2)) == Just TNum
+test4 = typeofMonad [] (Mult (Num 1) (Num 2)) == Just TNum
+test5 = typeofMonad [] (Exp (Num 2) (Num 3)) == Just TNum
+test6 = typeofMonad [] (And (Num 1) (Num 2)) == Nothing
+test7 = typeofMonad [] (Leq (Num 1) (Num 2)) == Just TBool
+test8 = typeofMonad [] (If (Boolean True) (Num 1) (Num 2)) == Just TNum
+test9 = typeofMonad [] (Lambda "x" (TNum :->: TBool) (Leq (Id "x") (Num 2))) == Nothing
+test10 = typeofMonad [] (Lambda "x" (TBool :->: TNum) (If (Id "x") (Num 1) (Num 2))) == Nothing
 
 main :: IO ()
 main = do {
+  print(if test0 then "Pass" else "Fail");
   print(if test1 then "Pass" else "Fail");
-  print(if test2 then "Pass" else "Fail")
+  print(if test2 then "Pass" else "Fail");
+  print(if test3 then "Pass" else "Fail");
+  print(if test4 then "Pass" else "Fail");
+  print(if test5 then "Pass" else "Fail");
+  print(if test6 then "Pass" else "Fail");
+  print(if test7 then "Pass" else "Fail");
+  print(if test8 then "Pass" else "Fail");
+  print(if test9 then "Pass" else "Fail");
+  print(if test10 then "Pass" else "Fail")
   }
