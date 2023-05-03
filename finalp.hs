@@ -1,39 +1,40 @@
-{-# LANGUAGE GADTs,FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 -- types
---T ::= int 
---    | bool 
---    | id 
---    | T + T 
---    | T - T 
---    | T * T 
---    | T / T 
---    | T ^ T 
---    | between T T T 
---    | lambda (id:TY) in T 
---    | T T 
---    | bind id T T 
---    | if T then T else T 
---    | T && T 
---    | T || T 
---    | T <= T 
+-- T ::= int
+--    | bool
+--    | id
+--    | T + T
+--    | T - T
+--    | T * T
+--    | T / T
+--    | T ^ T
+--    | between T T T
+--    | lambda (id:TY) in T
+--    | T T
+--    | bind id T T
+--    | if T then T else T
+--    | T && T
+--    | T || T
+--    | T <= T
 --    | isZero T
 --
---TY ::= Num 
---     | Boolean 
+-- TY ::= Num
+--     | Boolean
 --     | TY -> TY
 
 -- Abstract Syntax Definitions
 data T where -- operators
-  Int :: Int -> T
-  Bool :: Bool -> T
+  Num :: Int -> T
+  Boolean :: Bool -> T
   Id :: String -> T
-  Add :: T -> T -> T
-  Sub :: T -> T -> T
+  Plus :: T -> T -> T
+  Minus :: T -> T -> T
   Mult :: T -> T -> T
   Div :: T -> T -> T
-  Pow :: T -> T -> T
+  Exp :: T -> T -> T
   Between :: T -> T -> T -> T
   Lambda :: String -> TY -> T -> T
   App :: T -> T -> T
@@ -44,44 +45,63 @@ data T where -- operators
   Leq :: T -> T -> T
   IsZero :: T -> T
   Fix :: T -> T
-  deriving (Show, Eq)
+    --List AST--
+  List :: T -> T -> T
+  Head :: T -> T
+  Tail :: T -> T
+  Prepend :: T -> T -> T
+  EmptyList :: T 
+  deriving (Show,Eq)
 
-data TY where -- types
-  Num :: TY
-  Boolean :: TY
-  Arrow :: TY -> TY -> TY
-  deriving (Show, Eq)
+-- Types
+data TY where
+  TNum :: TY
+  TBool :: TY
+  (:->:) :: TY -> TY -> TY
+      --List type--
+  TList :: TY -> TY
+  deriving (Show,Eq)
 
-data TV where
-  NumV :: Int -> TV
-  BoolV :: Bool -> TV
-  ClosureV :: String -> T -> EnvV -> TV
+-- Values
+data TA where
+  NumA :: Int -> TA
+  BooleanA :: Bool -> TA
+  ClosureV :: String -> T -> MyTA -> TA
+  --List Value--
+  ListV :: TA -> TA -> TA
+  EmptyListA :: TA 
   deriving (Show, Eq)
 
 -- Context
-type Cont = [(String, TY)]
+-- type Cont = [(String, TY)]
+type MyTY = [(String, TY)]
 
 -- Environment
-type Env = [(String, T)]
-type EnvV = [(String, TV)]
+-- type Env = [(String, T)]
+-- type EnvV = [(String, TV)]
+type MyTA = [(String, TA)]
 
 -- Helper Functions
-lookupVar :: String -> Cont -> Maybe TY
-lookupVar _ [] = Nothing
-lookupVar x ((y, t):cont) = if x == y then Just t else lookupVar x cont
+lookupVar :: String -> MyTA -> TA
+lookupVar x e = case lookup x e of
+  Just v -> v
+  _ -> error "Variable not found"
 
-useClosure :: String -> TV -> EnvV -> EnvV -> EnvV
-useClosure i v e _ = (i,v):e 
+useClosure :: String -> TA -> MyTA -> MyTA -> MyTA
+useClosure i v e _ = (i,v):e
+-- useClosure x t e = case lookup x e of
+--   Just (ClosureV x' t' e') -> evalMonad (Bind x t e') e
+--   _ -> error "Not a closure"
 
 subst :: String -> T -> T -> T
-subst _ _ (Int i) = Int i
-subst _ _ (Bool b) = Bool b
+subst _ _ (Num i) = Num i
+subst _ _ (Boolean b) = Boolean b
 subst i t (Id x) = if i == x then t else Id x
-subst i t (Add x y) = Add (subst i t x) (subst i t y)
-subst i t (Sub x y) = Sub (subst i t x) (subst i t y)
+subst i t (Plus x y) = Plus (subst i t x) (subst i t y)
+subst i t (Minus x y) = Minus (subst i t x) (subst i t y)
 subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
 subst i t (Div x y) = Div (subst i t x) (subst i t y)
-subst i t (Pow x y) = Pow (subst i t x) (subst i t y)
+subst i t (Exp x y) = Exp (subst i t x) (subst i t y)
 subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
 subst i t (Lambda x y z) = if i == x then Lambda x y z else Lambda x y (subst i t z)
 subst i t (App x y) = App (subst i t x) (subst i t y)
@@ -94,266 +114,208 @@ subst i t (IsZero x) = IsZero (subst i t x)
 subst i t (Fix x) = Fix (subst i t x)
 
 --------------------------------
--- Part 1: Type Checking ------- -- Decide on a language name
+-- Part 1: Type Checking ------- 
 --------------------------------
--- implement a method that takes an expression from your language and returns its type given a context. If no type is found your method should return Nothing. 
-typeOf :: Cont -> T -> (Maybe TY)
-typeOf _ (Int _) = Just Num
-typeOf _ (Bool _) = Just Boolean
-typeOf cont (Id x) = lookupVar x cont
 
-typeOf cont (Add x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Num
-    _ -> Nothing
- 
+typeofMonad :: MyTY -> T -> (Maybe TY)
+typeofMonad g (Num x) = if x >= 0 then Just TNum else Nothing
+typeofMonad g (Boolean x) = return TBool
+typeofMonad g (Id i) = (lookup i g)
+typeofMonad g (Plus x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TNum
+typeofMonad g (Minus x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TNum
+typeofMonad g (Mult x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TNum
+typeofMonad g (Div x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TNum
+typeofMonad g (Exp x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TNum
+typeofMonad g (Between x y z) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  TNum <- typeofMonad g z
+  return TBool
+typeofMonad g (Lambda x d z) = do
+  m <- typeofMonad ((x, d) : g) z
+  return (d :->: m)
+typeofMonad g (App x y) = do
+  y' <- typeofMonad g y
+  z :->: r <- typeofMonad g x
+  if y' == z then return r else Nothing
+typeofMonad g (Bind i v b) = do
+  tov <- typeofMonad g v
+  typeofMonad ((i, tov) : g) b
+typeofMonad g (If x y z) = do
+  TBool <- typeofMonad g x
+  y' <- typeofMonad g y
+  z' <- typeofMonad g z
+  if y' == z' then return y' else Nothing
+typeofMonad g (And x y) = do
+  TBool <- typeofMonad g x
+  TBool <- typeofMonad g y
+  return TBool
+typeofMonad g (Or x y) = do
+  TBool <- typeofMonad g x
+  TBool <- typeofMonad g y
+  return TBool
+typeofMonad g (Leq x y) = do
+  TNum <- typeofMonad g x
+  TNum <- typeofMonad g y
+  return TBool
+typeofMonad g (IsZero x) = do
+  TNum <- typeofMonad g x
+  return TBool
+typeofMonad g (Fix x) = do
+  TNum :->: TNum <- typeofMonad g x
+  return TNum
+  
+  --List begin--
 
-typeOf cont (Sub x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Num
-    _ -> Nothing
- 
+typeofMonad g (List x y) = do
+  tx <- typeofMonad g x
+  ty <- typeofMonad g y
+  if tx == ty then return (TList tx) else Nothing
+typeofMonad g (Head x) = do
+  TList tx <- typeofMonad g x
+  return tx
+typeofMonad g (Tail x) = do
+  tlist <- typeofMonad g x
+  return tlist
+typeofMonad g (Prepend x y) = do
+  tx <- typeofMonad g x
+  TList ty <- typeofMonad g y
+  if tx == ty then return (TList tx) else Nothing
 
-typeOf cont (Mult x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Num
-    _ -> Nothing
- 
 
-typeOf cont (Div x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Num
-    _ -> Nothing
- 
+--List end--
 
-typeOf cont (Pow x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Num
-    _ -> Nothing
- 
-
-typeOf cont (Between x y z) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  t3 <- typeOf cont z;
-  case (t1, t2, t3) of
-    (Num, Num, Num) -> Just Boolean
-    _ -> Nothing
- 
-
-typeOf cont (Lambda x y z) = do       --where x is an identifier, y is a type, and b is a body
-  t1 <- typeOf ((x,y):cont) z;
-  -- type-check the body expression with the new variable in the context
-  -- t2 <- typeOf ((x, t1):cont) y
-  -- return the Arrow type from t1 to t2
-  return (Arrow y t1)
-
-typeOf cont (App x y) = do  
-  -- type-check the function expression
-  (Arrow t1 t2) <- typeOf cont x;
-  -- type-check the argument expression
-  t1' <- typeOf cont y;
-  if t1 == t1' -- if the type of the argument matches the domain of the function
-    then return t2
-    else Nothing
- 
-
-typeOf cont (Bind x y z) = do  
-  -- type-check the bound expression
-  t1 <- typeOf cont y;
-  -- type-check the body expression with the new variable in the context
-  t2 <- typeOf ((x, t1):cont) z;
-  return t2
- 
-
-typeOf cont (If x y z) = do  
-  -- type-check the condition expression
-  t1 <- typeOf cont x;
-  -- type-check the then expression
-  t2 <- typeOf cont y;
-  -- type-check the else expression
-  t3 <- typeOf cont z;
-  if t1 == Boolean && t2 == t3 -- if the condition is boolean and the then and else expressions have the same type
-    then return t2
-    else Nothing
- 
-
-typeOf cont (And x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Boolean, Boolean) -> Just Boolean
-    _ -> Nothing
- 
-
-typeOf cont (Or x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Boolean, Boolean) -> Just Boolean
-    _ -> Nothing
- 
-
-typeOf cont (Leq x y) = do  
-  t1 <- typeOf cont x;
-  t2 <- typeOf cont y;
-  case (t1, t2) of
-    (Num, Num) -> Just Boolean
-    _ -> Nothing
- 
-
-typeOf cont (IsZero x) = do  
-  t1 <- typeOf cont x;
-  case t1 of
-    Num -> Just Boolean
-    _ -> Nothing
-
-typeOf cont (Fix x) = do
-  (Arrow t1 t2) <- typeOf cont x;
-  if t1 == t2
-    then return t1
-    else Nothing
- 
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
 
-eval :: EnvV -> T -> (Maybe TV) --call-by-value and static scooping
-eval eV (Int x) = Just (NumV x)
-eval eV (Bool x) = Just (BoolV x)
-eval eV (Id x) = lookup x eV
+evalMonad :: MyTA -> T -> (Maybe TA)
+evalMonad e (Num x) = if x < 0 then Nothing else Just (NumA x)
+evalMonad e (Boolean x) = Just (BooleanA x)
+evalMonad e (Id i) = (lookup i e)
+evalMonad e (Plus x y) = do {
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  Just (NumA (x' + y'))
+}
+evalMonad e (Minus x y) = do {
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  if (x' < y') then Nothing else Just (NumA (x' - y'))
+}
+evalMonad e (Mult x y) = do {
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  return (NumA (x' * y'))
+}
+evalMonad e (Div x y) = do{
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  if (y' == 0) then Nothing else return (NumA (x' `div` y'))
+}
+evalMonad e (Exp x y) = do{
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  return (NumA (x' ^ y'))
+}
+evalMonad e (Between x y z) = do{
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  (NumA z') <- (evalMonad e z);
+  if (x' < y' && y' < z') then Just (BooleanA True) else Just (BooleanA False) 
+}
+evalMonad e (Lambda x y z) = Just (ClosureV x z e)
+evalMonad e (App f a) = do{
+  (ClosureV i b j)<- evalMonad e f;
+  v <- evalMonad e a;
+  evalMonad ((i,v):j) b
+}
+evalMonad e (Bind i v b) = do {
+  v' <- evalMonad e v;
+  evalMonad ((i, v'):e) b
+}
+evalMonad e (If x y z) = do{
+  (BooleanA x') <- (evalMonad e x);
+  if x' then (evalMonad e y) else (evalMonad e z)
+}
+evalMonad e (And x y) = do{
+  (BooleanA x') <- (evalMonad e x);
+  (BooleanA y') <- (evalMonad e y);
+  return (BooleanA (x' && y'))
+}
+evalMonad e (Or x y) = do{
+  (BooleanA x') <- (evalMonad e x);
+  (BooleanA y') <- (evalMonad e y);
+  return (BooleanA (x' || y'))
+}
+evalMonad e (Leq x y) = do{
+  (NumA x') <- (evalMonad e x);
+  (NumA y') <- (evalMonad e y);
+  if (x' <= y') then Just (BooleanA True) else Just (BooleanA False)
+}
+evalMonad e (IsZero x) = do {
+  (NumA x') <- evalMonad e x;
+  if (x' == 0) then Just (BooleanA True) else Just (BooleanA False)
+}
+evalMonad e (Fix x) = do {
+  (ClosureV i b j) <- evalMonad e x;
+  evalMonad ((i, Fix x):j) b
+}
 
-eval eV (Add x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' + y''))
-    _ -> Nothing
- 
+--List begin
 
-eval eV (Sub x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' - y''))
-    _ -> Nothing
- 
+evalMonad e (List x y) = do {
+  x' <- evalMonad e x;
+  y' <- evalMonad e y;
+  Just (ListV x' y')
+}
+evalMonad e (Head x) = do {
+  (ListV h _) <- evalMonad e x;
+  Just h
+}
+evalMonad e (Tail x) = do {
+  (ListV _ t) <- evalMonad e x;
+  Just t
+}
+evalMonad e (Prepend x y) = do {
+  x' <- evalMonad e x;
+  (ListV _ y') <- evalMonad e y;
+  Just (ListV x' y')
+}
 
-eval eV (Mult x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' * y''))
-    _ -> Nothing
- 
+evalMonad _ EmptyList = Just EmptyListA
 
-eval eV (Div x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' `div` y''))
-    _ -> Nothing
- 
-
-eval eV (Pow x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (NumV (x'' ^ y''))
-    _ -> Nothing
- 
-
-eval eV (Between x y z) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  z' <- eval eV z;
-  case (x', y', z') of
-    (NumV x'', NumV y'', NumV z'') -> Just (BoolV (x'' <= y'' && y'' <= z''))
-    _ -> Nothing
- 
-
-eval eV (Lambda x y z) = Just (ClosureV x z eV)
-
-eval eV (App x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case x' of
-    ClosureV i b e -> eval (useClosure i y' e eV) b
- 
-
-eval eV (Bind x y z) = do  
-  y' <- eval eV y;
-  eval ((x, y'):eV) z
- 
-
-eval eV (If x y z) = do  
-  x' <- eval eV x;
-  case x' of
-    (BoolV True) -> eval eV y
-    (BoolV False) -> eval eV z
-    _ -> Nothing
- 
-
-eval eV (And x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (BoolV x'', BoolV y'') -> Just (BoolV (x'' && y''))
-    _ -> Nothing
- 
-
-eval eV (Or x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (BoolV x'', BoolV y'') -> Just (BoolV (x'' || y''))
-    _ -> Nothing
- 
-
-eval eV (Leq x y) = do  
-  x' <- eval eV x;
-  y' <- eval eV y;
-  case (x', y') of
-    (NumV x'', NumV y'') -> Just (BoolV (x'' <= y''))
-    _ -> Nothing
- 
-
-eval eV (IsZero x) = do  
-  x' <- eval eV x;
-  case x' of
-    (NumV x'') -> Just (BoolV (x'' == 0))
-    _ -> Nothing
- 
-eval eV (Fix f) = do
-  ClosureV x y j <- eval eV f;
-  t <- Just Num
-  eval j (subst x (Fix (Lambda x t y)) y)
-
+--List end
 
 --------------------------------
 -- Part 3: Fixed Point Operator
 --------------------------------
 -- AST UPDATED
 -- TYPE CHECKER UPDATED
--- TODO: update eval
+-- EVAL UPDATED
 
 --------------------------------
--- Part 4: New Language Feature -- TODO: Decide on a new feature
+-- Part 4: New Language Feature (Lists)
 --------------------------------
 
--- TODO: update ast
--- TODO: update type checker
--- TODO: update eval
+-- AST UPDTAED
+-- TYPE CHECKER UPDATED
+-- EVAL UPDATED
 
 --------------------------------
 -- Part 5: Interpretation ------
@@ -361,35 +323,34 @@ eval eV (Fix f) = do
 
 -- interpret :: String -> Maybe T
 -- if input type is String, we need a parser
-interpret :: T -> (Maybe TV)
-interpret x = do {typeOf [] x;
-                  eval [] x;}
+interpret :: T -> (Maybe TA)
+interpret x = do {typeofMonad [] x;
+                  evalMonad [] x;}
 
 
 -- Testing
 -- To test quickly, you can use the following main function
 -- There's also a cabal file
-      -- 'cabal build' to compile
-      -- 'cabal clean' to clean up .exe and .o files
+-- 'cabal build' to compile
+-- 'cabal clean' to clean up .exe and .o files
 
 test1 = interpret (
                   Bind "f"
-                    (Fix (Lambda "g" (Arrow Num Num)
-                      (Lambda "x" Num
-                        (If (Leq (Id "x") (Int 1))
+                    (Fix (Lambda "g" (TNum :->: TNum)
+                      (Lambda "x" TNum
+                        (If (Leq (Id "x") (Num 1))
                           (Id "x")
-                          (Add
-                            (App (Id "g") (Sub (Id "x") (Int 1)))
-                            (App (Id "g") (Sub (Id "x") (Int 2)))
+                          (Plus
+                            (App (Id "g") (Minus (Id "x") (Num 1)))
+                            (App (Id "g") (Minus (Id "x") (Num 2)))
                           )
                         )
                       )
                     ))
-                    (App (Id "f") (Int 7))) == Just (NumV 13)
+                    (App (Id "f") (Num 7))) == Just (NumA 13)
 
 
 main :: IO ()
 main = do {
   print(test1)
   }
-
