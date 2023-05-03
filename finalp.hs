@@ -272,9 +272,12 @@ evalMonad e (IsZero x) = do {
   (NumA x') <- evalMonad e x;
   if (x' == 0) then Just (BooleanA True) else Just (BooleanA False)
 }
-evalMonad e (Fix x) = do {
-  (ClosureV i b j) <- evalMonad e x;
-  evalMonad ((i, Fix x):j) b
+evalMonad e (Fix f) = do {
+  -- (ClosureV i b j) <- evalMonad e x;
+  -- evalMonad ((i, Fix x):j) b
+  ClosureV x y j <- evalMonad e f;
+  t <- Just TNum;
+  evalMonad j (subst x (Fix (Lambda x t y)) y)
 }
 
 --List begin
@@ -334,7 +337,7 @@ interpret x = do {typeofMonad [] x;
 -- 'cabal build' to compile
 -- 'cabal clean' to clean up .exe and .o files
 
-test1 = interpret (
+test1 = evalMonad [] (
                   Bind "f"
                     (Fix (Lambda "g" (TNum :->: TNum)
                       (Lambda "x" TNum
