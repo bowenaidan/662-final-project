@@ -177,8 +177,8 @@ typeofMonad g (IsZero x) = do
   TNum <- typeofMonad g x
   return TBool
 typeofMonad g (Fix x) = do
-  TNum :->: TNum <- typeofMonad g x
-  return TNum
+  (d :->: r) <- typeofMonad g x
+  return r
   
   --List begin--
 
@@ -337,7 +337,7 @@ interpret x = do {typeofMonad [] x;
 -- 'cabal build' to compile
 -- 'cabal clean' to clean up .exe and .o files
 
-test1 = evalMonad [] (
+test1 = interpret (
                   Bind "f"
                     (Fix (Lambda "g" (TNum :->: TNum)
                       (Lambda "x" TNum
@@ -351,9 +351,17 @@ test1 = evalMonad [] (
                       )
                     ))
                     (App (Id "f") (Num 7))) == Just (NumA 13)
+test2 = interpret (
+                  Bind "f" (Lambda "g" ((:->:) TNum TNum)
+                  (Lambda "x" TNum (If (IsZero (Id "x")) (Num 1)
+                                        (Mult (Id "x")
+                                              (App (Id "g")
+                                                  (Minus (Id "x") (Num 1)))))))
+                  (App (Fix (Id "f")) (Num 5))) == Just (NumA 120)
 
 
 main :: IO ()
 main = do {
-  print(test1)
+  print(if test1 then "Pass" else "Fail");
+  print(if test2 then "Pass" else "Fail")
   }
