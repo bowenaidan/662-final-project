@@ -51,6 +51,7 @@ data T where -- operators
   Tail :: T -> T
   Prepend :: T -> T -> T
   EmptyList :: T 
+
   deriving (Show,Eq)
 
 -- Types
@@ -68,9 +69,11 @@ data TA where
   BooleanA :: Bool -> TA
   ClosureV :: String -> T -> MyTA -> TA
   --List Value--
+
   ListV :: TA -> TA -> TA
   EmptyListA :: TA 
   deriving (Show, Eq)
+
 
 -- Context
 -- type Cont = [(String, TY)]
@@ -86,6 +89,7 @@ lookupVar :: String -> MyTA -> TA
 lookupVar x e = case lookup x e of
   Just v -> v
   _ -> error "Variable not found"
+
 
 useClosure :: String -> TA -> MyTA -> MyTA -> MyTA
 useClosure i v e _ = (i,v):e
@@ -112,6 +116,7 @@ subst i t (Or x y) = Or (subst i t x) (subst i t y)
 subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
 subst i t (IsZero x) = IsZero (subst i t x)
 subst i t (Fix x) = Fix (subst i t x)
+
 
 --------------------------------
 -- Part 1: Type Checking ------- 
@@ -179,6 +184,7 @@ typeofMonad g (IsZero x) = do
 typeofMonad g (Fix x) = do
   (d :->: r) <- typeofMonad g x
   return r
+
   
   --List begin--
 
@@ -301,6 +307,7 @@ evalMonad e (Prepend x y) = do {
 
 evalMonad _ EmptyList = Just EmptyListA
 
+
 --List end
 
 --------------------------------
@@ -369,9 +376,11 @@ test2 = interpret (
                   (App (Fix (Id "f")) (Num 6))) == Just (NumA 720)
 
 
+
 main :: IO ()
 main = do {
   print(if test0 then "Pass" else "Fail");
   print(if test1 then "Pass" else "Fail");
   print(if test2 then "Pass" else "Fail")
   }
+

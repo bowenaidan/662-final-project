@@ -8,5 +8,12 @@ executable finalp
     base >= 4.8 && < 5
   default-language: Haskell2010
 
+test-suite finalp-test
+  type: exitcode-stdio-1.0
+  main-is: finalp-test.hs
+  build-depends:
+    base >= 4.8 && < 5
+  default-language: Haskell2010
+
 clean:
   rm -f *.o *.hi finalp
