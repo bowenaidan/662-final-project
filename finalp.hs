@@ -50,7 +50,8 @@ data T where -- operators
   Head :: T -> T
   Tail :: T -> T
   Prepend :: T -> T -> T
-  Length :: T -> T
+  EmptyList :: T 
+
   deriving (Show,Eq)
 
 -- Types
@@ -68,8 +69,11 @@ data TA where
   BooleanA :: Bool -> TA
   ClosureV :: String -> T -> MyTA -> TA
   --List Value--
-  ListV :: Int -> TA -> TA -> TA
-  deriving (Show, Eq, Eq)
+
+  ListV :: TA -> TA -> TA
+  EmptyListA :: TA 
+  deriving (Show, Eq)
+
 
 -- Context
 -- type Cont = [(String, TY)]
@@ -86,10 +90,33 @@ lookupVar x e = case lookup x e of
   Just v -> v
   _ -> error "Variable not found"
 
-useClosure :: String -> T -> MyTA -> TA
-useClosure x t e = case lookup x e of
-  Just (ClosureV x' t' e') -> evalMonad (Bind x t e') e
-  _ -> error "Not a closure"
+
+useClosure :: String -> TA -> MyTA -> MyTA -> MyTA
+useClosure i v e _ = (i,v):e
+-- useClosure x t e = case lookup x e of
+--   Just (ClosureV x' t' e') -> evalMonad (Bind x t e') e
+--   _ -> error "Not a closure"
+
+subst :: String -> T -> T -> T
+subst _ _ (Num i) = Num i
+subst _ _ (Boolean b) = Boolean b
+subst i t (Id x) = if i == x then t else Id x
+subst i t (Plus x y) = Plus (subst i t x) (subst i t y)
+subst i t (Minus x y) = Minus (subst i t x) (subst i t y)
+subst i t (Mult x y) = Mult (subst i t x) (subst i t y)
+subst i t (Div x y) = Div (subst i t x) (subst i t y)
+subst i t (Exp x y) = Exp (subst i t x) (subst i t y)
+subst i t (Between x y z) = Between (subst i t x) (subst i t y) (subst i t z)
+subst i t (Lambda x y z) = if i == x then Lambda x y z else Lambda x y (subst i t z)
+subst i t (App x y) = App (subst i t x) (subst i t y)
+subst i t (Bind x y z) = if i == x then Bind x (subst i t y) z else Bind x (subst i t y) (subst i t z)
+subst i t (If x y z) = If (subst i t x) (subst i t y) (subst i t z)
+subst i t (And x y) = And (subst i t x) (subst i t y)
+subst i t (Or x y) = Or (subst i t x) (subst i t y)
+subst i t (Leq x y) = Leq (subst i t x) (subst i t y)
+subst i t (IsZero x) = IsZero (subst i t x)
+subst i t (Fix x) = Fix (subst i t x)
+
 
 --------------------------------
 -- Part 1: Type Checking ------- 
@@ -155,8 +182,9 @@ typeofMonad g (IsZero x) = do
   TNum <- typeofMonad g x
   return TBool
 typeofMonad g (Fix x) = do
-  TNum :->: TNum <- typeofMonad g x
-  return TNum
+  (d :->: r) <- typeofMonad g x
+  return r
+
   
   --List begin--
 
@@ -174,9 +202,7 @@ typeofMonad g (Prepend x y) = do
   tx <- typeofMonad g x
   TList ty <- typeofMonad g y
   if tx == ty then return (TList tx) else Nothing
-typeofMonad g (Length x) = do
-  TList _ <- typeofMonad g x
-  return TNum
+
 
 --List end--
 
@@ -252,9 +278,10 @@ evalMonad e (IsZero x) = do {
   (NumA x') <- evalMonad e x;
   if (x' == 0) then Just (BooleanA True) else Just (BooleanA False)
 }
-evalMonad e (Fix x) = do {
-  (ClosureV i b j) <- evalMonad e x;
-  evalMonad ((i, Fix x):j) b
+evalMonad e (Fix f) = do {
+  ClosureV x y j <- evalMonad e f;
+  t <- Just TNum;
+  evalMonad j (subst x (Fix (Lambda x t y)) y)
 }
 
 --List begin
@@ -274,13 +301,12 @@ evalMonad e (Tail x) = do {
 }
 evalMonad e (Prepend x y) = do {
   x' <- evalMonad e x;
-  (ListV y') <- evalMonad e y;
+  (ListV _ y') <- evalMonad e y;
   Just (ListV x' y')
 }
-evalMonad e (Length x) = do {
-  (ListV l) <- evalMonad e x;
-  Just (NumA (length l))
-}
+
+evalMonad _ EmptyList = Just EmptyListA
+
 
 --List end
 
@@ -316,7 +342,10 @@ interpret x = do {typeofMonad [] x;
 -- 'cabal build' to compile
 -- 'cabal clean' to clean up .exe and .o files
 
-test1 = interpret (
+
+--three different recursive case functions for testing
+--fibonacci
+test0 = interpret (
                   Bind "f"
                     (Fix (Lambda "g" (TNum :->: TNum)
                       (Lambda "x" TNum
@@ -329,10 +358,29 @@ test1 = interpret (
                         )
                       )
                     ))
-                    (App (Id "f") (Num 7))) == Just (NumA 13)
+                    (App (Id "f") (Num 15))) == Just (NumA 610)
+
+--factorial
+test1 = interpret (Bind "f"
+                  (Lambda "g" ((:->:) TNum TNum)
+                    (Lambda "x" TNum
+                      (If (IsZero (Id "x"))(Num 1)(Mult (Id "x")(App (Id "g")(Minus (Id "x")(Num 1)))))))
+                    (App (Fix (Id "f")) (Num 8))) == Just (NumA 40320)
+--factorial again
+test2 = interpret (
+                  Bind "f" (Lambda "g" ((:->:) TNum TNum)
+                  (Lambda "x" TNum (If (IsZero (Id "x")) (Num 1)
+                                        (Mult (Id "x")
+                                              (App (Id "g")
+                                                  (Minus (Id "x") (Num 1)))))))
+                  (App (Fix (Id "f")) (Num 6))) == Just (NumA 720)
+
 
 
 main :: IO ()
 main = do {
-  print(test1)
+  print(if test0 then "Pass" else "Fail");
+  print(if test1 then "Pass" else "Fail");
+  print(if test2 then "Pass" else "Fail")
   }
+
