@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs,FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
+
 -- Abstract Syntax Definitions
 data T where
   Num :: Int -> T
@@ -38,6 +39,9 @@ data TY where
   (:->:) :: TY -> TY -> TY
       --List type--
   TList :: TY -> TY
+  TEmptyList :: TY
+
+  -- TVar :: String -> TY --
   deriving (Show, Eq)
 
 
@@ -45,8 +49,9 @@ data TA where
   NumA :: Int -> TA
   BooleanA :: Bool -> TA
   ClosureV :: String -> T -> [(String, TA)] -> TA  -- Function value
-  ListV :: TA -> TA -> TA     
-  EmptyListA :: TA                     -- List value
+  ListV :: TA -> TA -> TA     -- List value
+  EmptyListA :: TA -- List Empty        
+
   deriving (Show, Eq)
 
 
@@ -56,6 +61,10 @@ data TA where
 
 typeofMonad :: [(String, TY)] -> T -> Maybe TY
 typeofMonad g (Num x) = if x >= 0 then Just TNum else Nothing
+-- typeofMonad g EmptyList = Just (TList (TVar "a"))
+-- typeofMonad g EmptyList = Just EmptyListA
+
+-- typeofMonad g EmptyList = Just TEmptyList 
 typeofMonad g (Boolean x) = return TBool
 typeofMonad g (Id i) = (lookup i g)
 typeofMonad g (Plus x y) = do
@@ -125,19 +134,20 @@ typeofMonad g (Head x) = do
 typeofMonad g (Tail x) = do
   tlist <- typeofMonad g x
   return tlist
+
 typeofMonad g (Prepend x y) = do
   tx <- typeofMonad g x
   TList ty <- typeofMonad g y
   if tx == ty then return (TList tx) else Nothing
 
---List end
+typeofMonad _ EmptyList = Just (TList TEmptyList)
 
+--List end
 
 
 --------------------------------
 -- Part 2: Evaluation ----------
 --------------------------------
-
 evalMonad :: [(String, TA)] -> T -> Maybe TA
 evalMonad e (Num x) = if x < 0 then Nothing else Just (NumA x)
 evalMonad e (Boolean x) = Just (BooleanA x)
@@ -221,32 +231,45 @@ evalMonad e (Tail x) = do {
   (ListV _ t) <- evalMonad e x;
   Just t
 }
-evalMonad e (Prepend x y) = do
-  x' <- evalMonad e x
-  ListV _ y' <- evalMonad e y
+evalMonad e (Prepend x y) = do {
+  x' <- evalMonad e x;
+  y' <- evalMonad e y;
   Just (ListV x' y')
+}
 
 evalMonad _ EmptyList = Just EmptyListA
 
 --List end
-
-
-
 
 --------------------------------
 -- Part 4: New Language Feature TODO: -- List is implemented above and 
 --lines corresponding is commented list
 --------------------------------
 
+runTest :: String -> T -> IO ()
+runTest testName expr = do
+  putStrLn $ testName ++ ":"
+  putStrLn $ " Expression: " ++ show expr
+  putStrLn $ " Result: " ++ show (evalMonad [] (Bind testName expr (Id testName)))
+  putStrLn ""
+
+test1 = List EmptyList EmptyList
+test2 = Prepend (Num 1) EmptyList
+test3 = Prepend (Num 3) (Prepend (Num 2) (Prepend (Num 1) EmptyList))
+test4 = Head (Prepend (Num 5) (Prepend (Num 4) EmptyList))
+test5 = Tail (Prepend (Num 7) (Prepend (Num 6) EmptyList))
+test6 = Prepend (Num 9) (Prepend (Num 8) (Prepend (Num 7) (Prepend (Num 6) EmptyList)))
 
 
--- Testing
--- To test quickly, you can use the following main function
--- There's also a cabal file
-      -- 'cabal build' to compile
-      -- 'cabal clean' to clean up .exe and .o files
 
 
 main :: IO ()
-main = do 
-  print("This is the project")
+main = do
+  runTest "Test Case 1: Creating an empty list" test1
+  runTest "Test Case 2: Creating a list with one element" test2
+  runTest "Test Case 3: Creating a list with multiple elements" test3
+  runTest "Test Case 4: Accessing the head of a list" test4
+  runTest "Test Case 5: Accessing the tail of a list" test5
+  runTest "Test Case 6: Prepending an element to a list" test6
+
+

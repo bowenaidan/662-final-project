@@ -1,0 +1,42 @@
+Test Case 1: Creating an empty list
+
+vbnet
+Copy code
+Expression: Bind "empty" EmptyList EmptyList
+Type: Just (TList TNum)
+Result: Just EmptyListA
+Test Case 2: Creating a list with one element
+
+vbnet
+Copy code
+Expression: Bind "list1" (Prepend (Num 1) EmptyList) (Id "list1")
+Type: Just (TList TNum)
+Result: Just (ListV (NumA 1) EmptyListA)
+Test Case 3: Creating a list with multiple elements
+
+mathematica
+Copy code
+Expression: Bind "list2" (Prepend (Num 3) (Prepend (Num 2) (Prepend (Num 1) EmptyList))) (Id "list2")
+Type: Just (TList TNum)
+Result: Just (ListV (NumA 3) (ListV (NumA 2) (ListV (NumA 1) EmptyListA)))
+Test Case 4: Accessing the head of a list
+
+mathematica
+Copy code
+Expression: Bind "list3" (Prepend (Num 5) (Prepend (Num 4) EmptyList)) (Head (Id "list3"))
+Type: Just TNum
+Result: Just (NumA 5)
+Test Case 5: Accessing the tail of a list
+
+mathematica
+Copy code
+Expression: Bind "list4" (Prepend (Num 7) (Prepend (Num 6) EmptyList)) (Tail (Id "list4"))
+Type: Just (TList TNum)
+Result: Just (ListV (NumA 6) EmptyListA)
+Test Case 6: Prepending an element to a list
+
+mathematica
+Copy code
+Expression: Bind "list5" (Prepend (Num 8) (Prepend (Num 7) (Prepend (Num 6) EmptyList))) (Prepend (Num 9) (Id "list5"))
+Type: Just (TList TNum)
+Result: Just (ListV (NumA 9) (ListV (NumA 8) (ListV (NumA 7) (ListV (NumA 6) EmptyListA))))
