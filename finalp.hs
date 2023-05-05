@@ -50,8 +50,7 @@ data T where -- operators
   Head :: T -> T
   Tail :: T -> T
   Prepend :: T -> T -> T
-  EmptyList :: T 
-
+  EmptyList :: T
   deriving (Show,Eq)
 
 -- Types
@@ -59,7 +58,7 @@ data TY where
   TNum :: TY
   TBool :: TY
   (:->:) :: TY -> TY -> TY
-      --List type--
+  --List type--
   TList :: TY -> TY
   deriving (Show,Eq)
 
@@ -69,7 +68,6 @@ data TA where
   BooleanA :: Bool -> TA
   ClosureV :: String -> T -> MyTA -> TA
   --List Value--
-
   ListV :: TA -> TA -> TA
   EmptyListA :: TA 
   deriving (Show, Eq)
@@ -376,11 +374,9 @@ test2 = interpret (
                   (App (Fix (Id "f")) (Num 6))) == Just (NumA 720)
 
 
-
 main :: IO ()
 main = do {
   print(if test0 then "Pass" else "Fail");
   print(if test1 then "Pass" else "Fail");
-  print(if test2 then "Pass" else "Fail")
+  print(if test2 then "Pass" else "Fail");
   }
-
