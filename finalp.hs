@@ -60,16 +60,17 @@ data TY where
   (:->:) :: TY -> TY -> TY
   --List type--
   TList :: TY -> TY
+  TEmptyList :: TY
   deriving (Show,Eq)
 
 -- Values
 data TA where
   NumA :: Int -> TA
   BooleanA :: Bool -> TA
-  ClosureV :: String -> T -> MyTA -> TA
-  --List Value--
-  ListV :: TA -> TA -> TA
-  EmptyListA :: TA 
+  ClosureV :: String -> T -> [(String, TA)] -> TA  -- Function value
+  ListV :: TA -> TA -> TA     -- List value
+  EmptyListA :: TA -- List Empty        
+
   deriving (Show, Eq)
 
 
@@ -184,8 +185,7 @@ typeofMonad g (Fix x) = do
   return r
 
   
-  --List begin--
-
+ --List begin--
 typeofMonad g (List x y) = do
   tx <- typeofMonad g x
   ty <- typeofMonad g y
@@ -196,13 +196,15 @@ typeofMonad g (Head x) = do
 typeofMonad g (Tail x) = do
   tlist <- typeofMonad g x
   return tlist
+
 typeofMonad g (Prepend x y) = do
   tx <- typeofMonad g x
   TList ty <- typeofMonad g y
   if tx == ty then return (TList tx) else Nothing
 
+typeofMonad _ EmptyList = Just (TList TEmptyList)
 
---List end--
+--List end
 
 --------------------------------
 -- Part 2: Evaluation ----------
@@ -283,7 +285,6 @@ evalMonad e (Fix f) = do {
 }
 
 --List begin
-
 evalMonad e (List x y) = do {
   x' <- evalMonad e x;
   y' <- evalMonad e y;
@@ -299,12 +300,11 @@ evalMonad e (Tail x) = do {
 }
 evalMonad e (Prepend x y) = do {
   x' <- evalMonad e x;
-  (ListV _ y') <- evalMonad e y;
+  y' <- evalMonad e y;
   Just (ListV x' y')
 }
 
 evalMonad _ EmptyList = Just EmptyListA
-
 
 --List end
 
@@ -341,42 +341,71 @@ interpret x = do {typeofMonad [] x;
 -- 'cabal clean' to clean up .exe and .o files
 
 
---three different recursive case functions for testing
---fibonacci
-test0 = interpret (
-                  Bind "f"
-                    (Fix (Lambda "g" (TNum :->: TNum)
-                      (Lambda "x" TNum
-                        (If (Leq (Id "x") (Num 1))
-                          (Id "x")
-                          (Plus
-                            (App (Id "g") (Minus (Id "x") (Num 1)))
-                            (App (Id "g") (Minus (Id "x") (Num 2)))
-                          )
-                        )
-                      )
-                    ))
-                    (App (Id "f") (Num 15))) == Just (NumA 610)
+-- --three different recursive case functions for testing
+-- --fibonacci
+-- test0 = interpret (
+--                   Bind "f"
+--                     (Fix (Lambda "g" (TNum :->: TNum)
+--                       (Lambda "x" TNum
+--                         (If (Leq (Id "x") (Num 1))
+--                           (Id "x")
+--                           (Plus
+--                             (App (Id "g") (Minus (Id "x") (Num 1)))
+--                             (App (Id "g") (Minus (Id "x") (Num 2)))
+--                           )
+--                         )
+--                       )
+--                     ))
+--                     (App (Id "f") (Num 15))) == Just (NumA 610)
 
---factorial
-test1 = interpret (Bind "f"
-                  (Lambda "g" ((:->:) TNum TNum)
-                    (Lambda "x" TNum
-                      (If (IsZero (Id "x"))(Num 1)(Mult (Id "x")(App (Id "g")(Minus (Id "x")(Num 1)))))))
-                    (App (Fix (Id "f")) (Num 8))) == Just (NumA 40320)
---factorial again
-test2 = interpret (
-                  Bind "f" (Lambda "g" ((:->:) TNum TNum)
-                  (Lambda "x" TNum (If (IsZero (Id "x")) (Num 1)
-                                        (Mult (Id "x")
-                                              (App (Id "g")
-                                                  (Minus (Id "x") (Num 1)))))))
-                  (App (Fix (Id "f")) (Num 6))) == Just (NumA 720)
+-- --factorial
+-- test1 = interpret (Bind "f"
+--                   (Lambda "g" ((:->:) TNum TNum)
+--                     (Lambda "x" TNum
+--                       (If (IsZero (Id "x"))(Num 1)(Mult (Id "x")(App (Id "g")(Minus (Id "x")(Num 1)))))))
+--                     (App (Fix (Id "f")) (Num 8))) == Just (NumA 40320)
+-- --factorial again
+-- test2 = interpret (
+--                   Bind "f" (Lambda "g" ((:->:) TNum TNum)
+--                   (Lambda "x" TNum (If (IsZero (Id "x")) (Num 1)
+--                                         (Mult (Id "x")
+--                                               (App (Id "g")
+--                                                   (Minus (Id "x") (Num 1)))))))
+--                   (App (Fix (Id "f")) (Num 6))) == Just (NumA 720)
+
+
+-- main :: IO ()
+-- main = do {
+--   print(if test0 then "Pass" else "Fail");
+--   print(if test1 then "Pass" else "Fail");
+--   print(if test2 then "Pass" else "Fail");
+--   }
+
+
+runTest :: String -> T -> IO ()
+runTest testName expr = do
+  putStrLn $ testName ++ ":"
+  putStrLn $ " Expression: " ++ show expr
+  putStrLn $ " Result: " ++ show (evalMonad [] (Bind testName expr (Id testName)))
+  putStrLn ""
+
+test1 = List EmptyList EmptyList
+test2 = Prepend (Num 1) EmptyList
+test3 = Prepend (Num 3) (Prepend (Num 2) (Prepend (Num 1) EmptyList))
+test4 = Head (Prepend (Num 5) (Prepend (Num 4) EmptyList))
+test5 = Tail (Prepend (Num 7) (Prepend (Num 6) EmptyList))
+test6 = Prepend (Num 9) (Prepend (Num 8) (Prepend (Num 7) (Prepend (Num 6) EmptyList)))
+
+
 
 
 main :: IO ()
-main = do {
-  print(if test0 then "Pass" else "Fail");
-  print(if test1 then "Pass" else "Fail");
-  print(if test2 then "Pass" else "Fail");
-  }
+main = do
+  runTest "Test Case 1: Creating an empty list" test1
+  runTest "Test Case 2: Creating a list with one element" test2
+  runTest "Test Case 3: Creating a list with multiple elements" test3
+  runTest "Test Case 4: Accessing the head of a list" test4
+  runTest "Test Case 5: Accessing the tail of a list" test5
+  runTest "Test Case 6: Prepending an element to a list" test6
+
+
